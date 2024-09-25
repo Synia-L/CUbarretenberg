@@ -69,15 +69,15 @@ function build_native {
   cp ./build-pic/lib/world_state_napi.node ../../yarn-project/world-state/build/
 }
 
-function build_wasm {
-  cmake --preset wasm
-  cmake --build --preset wasm
-}
+# function build_wasm {
+#   cmake --preset wasm
+#   cmake --build --preset wasm
+# }
 
-function build_wasm_threads {
-  cmake --preset wasm-threads
-  cmake --build --preset wasm-threads
-}
+# function build_wasm_threads {
+#   cmake --preset wasm-threads
+#   cmake --build --preset wasm-threads
+# }
 
 g="\033[32m"  # Green
 b="\033[34m"  # Blue
@@ -102,12 +102,12 @@ MIN_PARALLEL_BUILD_MEMORY=32854492
 if [[ AVAILABLE_MEMORY -lt MIN_PARALLEL_BUILD_MEMORY ]]; then
   echo "System does not have enough memory for parallel builds, falling back to sequential"
   build_native
-  build_wasm
-  build_wasm_threads
+  # build_wasm
+  # build_wasm_threads
 else
   (build_native > >(awk -v g="$g" -v r="$r" '{print g "native: " r $0}')) &
-  (build_wasm > >(awk -v b="$b" -v r="$r" '{print b "wasm: " r $0}')) &
-  (build_wasm_threads > >(awk -v p="$p" -v r="$r" '{print p "wasm_threads: "r $0}')) &
+  # (build_wasm > >(awk -v b="$b" -v r="$r" '{print b "wasm: " r $0}')) &
+  # (build_wasm_threads > >(awk -v p="$p" -v r="$r" '{print p "wasm_threads: "r $0}')) &
 
   for job in $(jobs -p); do
     wait $job || exit 1
