@@ -28,8 +28,11 @@ barretenberg-acir-tests-bb:
     # Run every acir test through native bb build prove_then_verify flow for UltraPlonk.
     # This ensures we test independent pk construction through real/garbage witness data paths.
     RUN FLOW=prove_then_verify ./run_acir_tests.sh
-    # Construct and separately verify a UltraHonk proof for a single program
-    RUN FLOW=prove_then_verify_ultra_honk ./run_acir_tests.sh sha256
+
+    # Run the acir test through native bb build prove_then_verify_ultra_honk flow
+    # Note that the script will skip the Plonk related tests
+    RUN FLOW=prove_then_verify_ultra_honk HONK=true ./run_acir_tests.sh
+
     # Construct and separately verify a MegaHonk proof for all acir programs
     RUN FLOW=prove_then_verify_mega_honk ./run_acir_tests.sh
     # Construct and verify a UltraHonk proof for a single program
@@ -104,6 +107,8 @@ barretenberg-acir-tests-bb.js:
     RUN cd ../ts && yarn
     ENV VERBOSE=1
     ENV TEST_SRC /usr/src/acir_artifacts
+    # We have diminishing returns after 32 cores, and unnecessarily use resources
+    ENV HARDWARE_CONCURRENCY=32
 
     # TODO(https://github.com/noir-lang/noir/issues/5106)
     # TODO(https://github.com/AztecProtocol/aztec-packages/issues/6672)c

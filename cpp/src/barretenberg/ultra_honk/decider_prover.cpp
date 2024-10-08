@@ -17,7 +17,6 @@ DeciderProver_<Flavor>::DeciderProver_(const std::shared_ptr<DeciderPK>& proving
                                        const std::shared_ptr<Transcript>& transcript)
     : proving_key(std::move(proving_key))
     , transcript(transcript)
-    , commitment_key(proving_key->proving_key.commitment_key)
 {}
 
 /**
@@ -31,7 +30,10 @@ template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_relation_ch
     size_t polynomial_size = proving_key->proving_key.circuit_size;
     auto sumcheck = Sumcheck(polynomial_size, transcript);
     {
+
+#ifdef TRACY_MEMORY
         ZoneScopedN("sumcheck.prove");
+#endif
         sumcheck_output = sumcheck.prove(proving_key->proving_key.polynomials,
                                          proving_key->relation_parameters,
                                          proving_key->alphas,
@@ -47,16 +49,20 @@ template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_relation_ch
  * */
 template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_pcs_rounds()
 {
-    using ZeroMorph = ZeroMorphProver_<Curve>;
-    auto prover_opening_claim = ZeroMorph::prove(proving_key->proving_key.circuit_size,
-                                                 proving_key->proving_key.polynomials.get_unshifted(),
-                                                 proving_key->proving_key.polynomials.get_to_be_shifted(),
-                                                 sumcheck_output.claimed_evaluations.get_unshifted(),
-                                                 sumcheck_output.claimed_evaluations.get_shifted(),
-                                                 sumcheck_output.challenge,
-                                                 commitment_key,
-                                                 transcript);
-    PCS::compute_opening_proof(commitment_key, prover_opening_claim, transcript);
+    if (proving_key->proving_key.commitment_key == nullptr) {
+        proving_key->proving_key.commitment_key =
+            std::make_shared<CommitmentKey>(proving_key->proving_key.circuit_size);
+    }
+    using OpeningClaim = ProverOpeningClaim<Curve>;
+
+    const OpeningClaim prover_opening_claim =
+        ShpleminiProver_<Curve>::prove(proving_key->proving_key.circuit_size,
+                                       proving_key->proving_key.polynomials.get_unshifted(),
+                                       proving_key->proving_key.polynomials.get_to_be_shifted(),
+                                       sumcheck_output.challenge,
+                                       proving_key->proving_key.commitment_key,
+                                       transcript);
+    PCS::compute_opening_proof(proving_key->proving_key.commitment_key, prover_opening_claim, transcript);
 }
 
 template <IsUltraFlavor Flavor> HonkProof DeciderProver_<Flavor>::export_proof()
