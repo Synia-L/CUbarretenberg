@@ -1,4 +1,4 @@
-#include "barretenberg/vm/avm/recursion/avm_recursive_verifier.hpp"
+#include "barretenberg/vm/avm/recursion/recursive_verifier.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
@@ -7,7 +7,7 @@
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 #include "barretenberg/vm/avm/generated/circuit_builder.hpp"
 #include "barretenberg/vm/avm/generated/composer.hpp"
-#include "barretenberg/vm/avm/recursion/avm_recursive_flavor.hpp"
+#include "barretenberg/vm/avm/recursion/recursive_flavor.hpp"
 #include "barretenberg/vm/avm/tests/helpers.test.hpp"
 #include "barretenberg/vm/avm/trace/common.hpp"
 #include "barretenberg/vm/avm/trace/helper.hpp"
@@ -41,21 +41,26 @@ class AvmRecursiveTests : public ::testing::Test {
 
     static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
 
+    VmPublicInputsNT public_inputs;
+
     // Generate an extremely simple avm trace
-    static AvmCircuitBuilder generate_avm_circuit(VmPublicInputsNT public_inputs)
+    AvmCircuitBuilder generate_avm_circuit()
     {
+        public_inputs = generate_base_public_inputs();
         AvmTraceBuilder trace_builder(public_inputs);
         AvmCircuitBuilder builder;
 
         trace_builder.op_set(0, 1, 1, AvmMemoryTag::U8);
         trace_builder.op_set(0, 1, 2, AvmMemoryTag::U8);
-        trace_builder.op_add(0, 1, 2, 3, AvmMemoryTag::U8);
+        trace_builder.op_add(0, 1, 2, 3);
         trace_builder.op_return(0, 0, 0);
         auto trace = trace_builder.finalize(); // Passing true enables a longer trace with lookups
 
+        inject_end_gas_values(public_inputs, trace);
+
         builder.set_trace(std::move(trace));
         builder.check_circuit();
-        vinfo("inner builder - num gates: ", builder.get_num_gates());
+        vinfo("inner builder - num gates: ", builder.get_estimated_num_finalized_gates());
 
         return builder;
     }
@@ -63,8 +68,7 @@ class AvmRecursiveTests : public ::testing::Test {
 
 TEST_F(AvmRecursiveTests, recursion)
 {
-    const auto public_inputs = generate_base_public_inputs();
-    AvmCircuitBuilder circuit_builder = generate_avm_circuit(public_inputs);
+    AvmCircuitBuilder circuit_builder = generate_avm_circuit();
     AvmComposer composer = AvmComposer();
     InnerProver prover = composer.create_prover(circuit_builder);
     InnerVerifier verifier = composer.create_verifier(circuit_builder);
